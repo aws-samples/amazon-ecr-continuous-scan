@@ -16,8 +16,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-// ScanSpec represents configuration for the
-// target repository
+// ScanSpec represents configuration for the target repository
 type ScanSpec struct {
 	// ID is a unique identifier for the scan spec
 	ID string `json:"id"`

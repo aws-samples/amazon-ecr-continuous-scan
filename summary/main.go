@@ -59,65 +59,6 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	fmt.Printf("DEBUG:: summary start\n")
 	fmt.Println(configbucket)
 	fmt.Println(resultbucket)
-	// cfg, err := external.LoadDefaultAWSConfig()
-	// if err != nil {
-	// 	return serverError(err)
-	// }
-	// // validate cluster ID or list lookup in URL path:
-	// if _, ok := request.PathParameters["clusterid"]; !ok {
-	// 	return serverError(fmt.Errorf("Unknown cluster status query. Either specify a cluster ID or _ for listing all clusters."))
-	// }
-	// cID := request.PathParameters["clusterid"]
-	// // return info on specified cluster if we have an cluster ID in the URL path component:
-	// if cID != "*" {
-	// 	fmt.Printf("DEBUG:: cluster info lookup for ID %v start\n", cID)
-	// 	cs, err := fetchClusterSpec(clusterbucket, cID)
-	// 	if err != nil {
-	// 		return serverError(err)
-	// 	}
-	// 	clustername := cs.Name
-	// 	cd, err := getClusterDetails(clustername)
-	// 	if err != nil {
-	// 		return serverError(err)
-	// 	}
-	// 	cs.ClusterDetails = make(map[string]string)
-	// 	cs.ClusterDetails["endpoint"] = *cd.Endpoint
-	// 	cs.ClusterDetails["status"] = fmt.Sprintf("%v", cd.Status)
-	// 	cs.ClusterDetails["platformv"] = *cd.PlatformVersion
-	// 	cs.ClusterDetails["vpcconf"] = fmt.Sprintf("private access: %v, public access: %v ", *cd.ResourcesVpcConfig.EndpointPrivateAccess, *cd.ResourcesVpcConfig.EndpointPublicAccess)
-	// 	cs.ClusterDetails["iamrole"] = *cd.RoleArn
-	// 	csjson, err := json.Marshal(cs)
-	// 	if err != nil {
-	// 		return serverError(err)
-	// 	}
-	// 	fmt.Printf("DEBUG:: cluster info lookup done\n")
-	// 	return events.APIGatewayProxyResponse{
-	// 		StatusCode: http.StatusOK,
-	// 		Headers: map[string]string{
-	// 			"Content-Type":                "application/json",
-	// 			"Access-Control-Allow-Origin": "*",
-	// 		},
-	// 		Body: string(csjson),
-	// 	}, nil
-	// }
-	// // if we have no specified cluster ID in the path, list all cluster IDs:
-	// // list all objects in the bucket:
-	// svc := s3.New(cfg)
-	// req := svc.ListObjectsRequest(&s3.ListObjectsInput{Bucket: &clusterbucket})
-	// resp, err := req.Send(context.TODO())
-	// if err != nil {
-	// 	return serverError(err)
-	// }
-	// clusterIDs := []string{}
-	// // get the content of all objects (cluster specs) in the bucket:
-	// for _, obj := range resp.Contents {
-	// 	fn := *obj.Key
-	// 	clusterIDs = append(clusterIDs, strings.TrimSuffix(fn, ".json"))
-	// }
-	// clusteridsjson, err := json.Marshal(clusterIDs)
-	// if err != nil {
-	// 	return serverError(err)
-	// }
 
 	fmt.Printf("DEBUG:: summary done\n")
 	return events.APIGatewayProxyResponse{
