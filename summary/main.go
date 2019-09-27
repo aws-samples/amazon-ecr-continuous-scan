@@ -1,45 +1,40 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	_ "image/jpeg"
 	_ "image/png"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ecr"
 )
 
-// ClusterSpec represents the parameters for eksctl,
-// as cluster metadata including owner and how long the cluster
-// still has to live.
-type ClusterSpec struct {
-	// ID is a unique identifier for the cluster
+// ScanSpec represents configuration for the target repository
+type ScanSpec struct {
+	// ID is a unique identifier for the scan spec
 	ID string `json:"id"`
-	// Name specifies the cluster name
-	Name string `json:"name"`
-	// NumWorkers specifies the number of worker nodes, defaults to 1
-	NumWorkers int `json:"numworkers"`
-	// KubeVersion  specifies the Kubernetes version to use, defaults to `1.12`
-	KubeVersion string `json:"kubeversion"`
-	// Timeout specifies the timeout in minutes, after which the cluster
-	// is destroyed, defaults to 10
-	Timeout int `json:"timeout"`
-	// Timeout specifies the cluster time to live in minutes.
-	// In other words: the remaining time the cluster has before it is destroyed
-	TTL int `json:"ttl"`
-	// Owner specifies the email address of the owner (will be notified when cluster is created and 5 min before destruction)
-	Owner string `json:"owner"`
-	// CreationTime is the UTC timestamp of when the cluster was created
-	// which equals the point in time of the creation of the respective
-	// JSON representation of the cluster spec as an object in the metadata
-	// bucket
+	// CreationTime is the UTC timestamp of when the scan spec was created
 	CreationTime string `json:"created"`
-	// ClusterDetails is only valid for lookup of individual clusters,
-	// that is, when user does, for example, a eksp l CLUSTERID. It
-	// holds info such as cluster status and config
-	ClusterDetails map[string]string `json:"details"`
+	// Region specifies the region the repository is in
+	Region string `json:"region"`
+	// RegistryID specifies the registry ID
+	RegistryID string `json:"registry"`
+	// Repository specifies the repository name
+	Repository string `json:"repository"`
+	// Level specifies the severity to consider for summaries
+	// 'high' ... HIGH only, and 'all' ... INFORMATIONAL+UNDEFINED+LOW+MEDIUM+HIGH
+	Level string `json:"level"`
 }
 
 func serverError(err error) (events.APIGatewayProxyResponse, error) {
@@ -53,12 +48,91 @@ func serverError(err error) (events.APIGatewayProxyResponse, error) {
 	}, nil
 }
 
+// fetchScanSpec returns the scan spec
+// in a given bucket, with a given scan ID
+func fetchScanSpec(configbucket, scanid string) (ScanSpec, error) {
+	ss := ScanSpec{}
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		return ss, err
+	}
+	downloader := s3manager.NewDownloader(cfg)
+	buf := aws.NewWriteAtBuffer([]byte{})
+	_, err = downloader.Download(buf, &s3.GetObjectInput{
+		Bucket: aws.String(configbucket),
+		Key:    aws.String(scanid + ".json"),
+	})
+	if err != nil {
+		return ss, err
+	}
+	err = json.Unmarshal(buf.Bytes(), &ss)
+	if err != nil {
+		return ss, err
+	}
+	return ss, nil
+}
+
+func describeScan(scanspec ScanSpec) (string, error) {
+	s := session.Must(session.NewSession(&aws.Config{
+		Region:   aws.String(scanspec.Region),
+		Endpoint: aws.String("https://starport.us-west-2.amazonaws.com"),
+	}))
+	svc := ecr.New(s)
+	iid := &ecr.ImageIdentifier{
+		ImageTag: aws.String("latest"),
+	}
+	input := &ecr.DescribeImageScanFindingsInput{
+		RepositoryName: &scanspec.Repository,
+		RegistryId:     &scanspec.RegistryID,
+		ImageId:        iid,
+		MaxResults:     aws.Int64(10),
+	}
+	result, err := svc.DescribeImageScanFindings(input)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%v", result), nil
+}
+
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	configbucket := os.Getenv("ECR_SCAN_CONFIG_BUCKET")
 	resultbucket := os.Getenv("ECR_SCAN_RESULT_BUCKET")
 	fmt.Printf("DEBUG:: summary start\n")
 	fmt.Println(configbucket)
 	fmt.Println(resultbucket)
+
+	result := ""
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		fmt.Println(err)
+		return serverError(err)
+	}
+	svc := s3.New(cfg)
+	fmt.Printf("Scanning bucket %v for scan specs\n", configbucket)
+	req := svc.ListObjectsRequest(&s3.ListObjectsInput{
+		Bucket: &configbucket,
+	},
+	)
+	resp, err := req.Send(context.TODO())
+	if err != nil {
+		fmt.Println(err)
+		return serverError(err)
+	}
+	for _, obj := range resp.Contents {
+		fn := *obj.Key
+		scanID := strings.TrimSuffix(fn, ".json")
+		scanspec, err := fetchScanSpec(configbucket, scanID)
+		if err != nil {
+			fmt.Println(err)
+			return serverError(err)
+		}
+		result, err = describeScan(scanspec)
+		if err != nil {
+			fmt.Println(err)
+			return serverError(err)
+		}
+		fmt.Printf("DEBUG:: result %v\n", result)
+	}
 
 	fmt.Printf("DEBUG:: summary done\n")
 	return events.APIGatewayProxyResponse{
@@ -67,7 +141,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 			"Content-Type":                "application/json",
 			"Access-Control-Allow-Origin": "*",
 		},
-		Body: "summary done",
+		Body: result,
 	}, nil
 }
 
