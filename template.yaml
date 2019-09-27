@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: ECR Continuous Scan
+
+Globals:
+  Function:
+    Timeout: 30
+  Api:
+    Cors:
+      AllowMethods: "'*'"
+      AllowHeaders: "'*'"
+      AllowOrigin: "'*'"
+
+Parameters:
+    ConfigBucketName:
+        Type: String
+    ResultBucketName:
+        Type: String
+
+Resources:
+  RegisterFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: bin/
+      Handler: register
+      Runtime: go1.x
+      Tracing: Active
+      Environment:
+        Variables:
+          ECR_SCAN_CONFIG_BUCKET: !Sub "${ConfigBucketName}"
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            Path: /register
+            Method: POST
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+              - s3:*
+              Resource:
+              - !Sub "arn:aws:s3:::${ConfigBucketName}/*"
+              - !Sub "arn:aws:s3:::${ConfigBucketName}"
+  SummaryFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: bin/
+      Handler: summary
+      Runtime: go1.x
+      Tracing: Active
+      Environment:
+        Variables:
+          ECR_SCAN_CONFIG_BUCKET: !Sub "${ConfigBucketName}"
+          ECR_SCAN_RESULT_BUCKET: !Sub "${ResultBucketName}"
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            Path: /summary
+            Method: GET
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+              - ecr:*
+              Resource: '*'
+            - Effect: Allow
+              Action:
+              - s3:*
+              Resource:
+              - !Sub "arn:aws:s3:::${ConfigBucketName}/*"
+              - !Sub "arn:aws:s3:::${ConfigBucketName}"
+              - !Sub "arn:aws:s3:::${ResultBucketName}/*"
+              - !Sub "arn:aws:s3:::${ResultBucketName}"
+  StartScanFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: bin/
+      Handler: start-scan
+      Runtime: go1.x
+      Tracing: Active
+      Environment:
+        Variables:
+          ECR_SCAN_CONFIG_BUCKET: !Sub "${ConfigBucketName}"
+      Events:
+        Timer:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+              - ecr:*
+              Resource: '*'
+            - Effect: Allow
+              Action:
+              - s3:*
+              Resource:
+              - !Sub "arn:aws:s3:::${ConfigBucketName}/*"
+              - !Sub "arn:aws:s3:::${ConfigBucketName}"
+  
+
+Outputs:
+  EKSphemeralAPIEndpoint:
+    Description: "The ECR Continuous Scan HTTP API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+
