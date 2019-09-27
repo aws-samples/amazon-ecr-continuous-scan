@@ -13,3 +13,4 @@
 .DS_Store
 /bin
 /vendor/github.com/aws/aws-sdk-go
+/current-stack.yaml
