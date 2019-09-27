@@ -109,7 +109,7 @@ Resources:
   
 
 Outputs:
-  EKSphemeralAPIEndpoint:
+  ECRScanAPIEndpoint:
     Description: "The ECR Continuous Scan HTTP API Gateway endpoint URL"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
 
