@@ -31,9 +31,6 @@ type ScanSpec struct {
 	RegistryID string `json:"registry"`
 	// Repository specifies the repository name
 	Repository string `json:"repository"`
-	// Level specifies the severity to consider for summaries
-	// 'high' ... HIGH only, and 'all' ... INFORMATIONAL+UNDEFINED+LOW+MEDIUM+HIGH
-	Level string `json:"level"`
 	// Tags to take into consideration, if empty, all tags will be scanned
 	Tags []string `json:"tags"`
 }

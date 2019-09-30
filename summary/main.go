@@ -32,9 +32,6 @@ type ScanSpec struct {
 	RegistryID string `json:"registry"`
 	// Repository specifies the repository name
 	Repository string `json:"repository"`
-	// Level specifies the severity to consider for summaries
-	// 'high' ... HIGH only, and 'all' ... INFORMATIONAL+UNDEFINED+LOW+MEDIUM+HIGH
-	Level string `json:"level"`
 	// Tags to take into consideration, if empty, all tags will be scanned
 	Tags []string `json:"tags"`
 }
@@ -106,7 +103,7 @@ func describeScan(scanspec ScanSpec) (map[string]ecr.ImageScanFindings, error) {
 				return results, err
 			}
 			results[*iid.ImageTag] = *result.ImageScanFindings
-			fmt.Printf("DEBUG:: result for tag %v: %v\n", *iid.ImageTag, result)
+			// fmt.Printf("DEBUG:: result for tag %v: %v\n", *iid.ImageTag, result)
 		}
 	default: // iterate over the tags specified in the config:
 		fmt.Printf("DEBUG:: scanning tags %v for repo %v\n", scanspec.Tags, scanspec.Repository)
@@ -120,7 +117,7 @@ func describeScan(scanspec ScanSpec) (map[string]ecr.ImageScanFindings, error) {
 				return results, err
 			}
 			results[tag] = *result.ImageScanFindings
-			fmt.Printf("DEBUG:: result for tag %v: %v\n", tag, result)
+			// fmt.Printf("DEBUG:: result for tag %v: %v\n", tag, result)
 		}
 	}
 	return results, nil
@@ -160,7 +157,11 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 			return serverError(err)
 		}
 		for tag, result := range results {
-			ssresult += fmt.Sprintf("Results for %v:%v in %v:\n%v\n\n", scanspec.Repository, tag, scanspec.Region, result.FindingSeverityCounts)
+			sevcount := ""
+			for sev, count := range result.FindingSeverityCounts {
+				sevcount += fmt.Sprintf(" %v: %v\n", sev, *count)
+			}
+			ssresult += fmt.Sprintf("Results for %v:%v in %v:\n%v\n\n", scanspec.Repository, tag, scanspec.Region, sevcount)
 		}
 	}
 
