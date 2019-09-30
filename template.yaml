@@ -29,11 +29,21 @@ Resources:
         Variables:
           ECR_SCAN_CONFIG_BUCKET: !Sub "${ConfigBucketName}"
       Events:
-        CatchAll:
+        AddConfig:
           Type: Api
           Properties:
-            Path: /register
+            Path: /configs
             Method: POST
+        RemoveConfig:
+          Type: Api
+          Properties:
+            Path: /configs/{regionrepo}
+            Method: DELETE
+        ListConfigs:
+          Type: Api
+          Properties:
+            Path: /configs
+            Method: GET
       Policies:
         - AWSLambdaExecute
         - Version: '2012-10-17'
