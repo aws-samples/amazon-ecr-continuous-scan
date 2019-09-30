@@ -114,8 +114,15 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	configbucket := os.Getenv("ECR_SCAN_CONFIG_BUCKET")
 	fmt.Printf("DEBUG:: config continuous scan start\n")
 
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		return serverError(err)
+	}
+	svc := s3.New(cfg)
+
 	switch request.HTTPMethod {
 	case "POST":
+		fmt.Printf("DEBUG:: adding scan config\n")
 		ss := ScanSpec{}
 		// Unmarshal the JSON payload in the POST:
 		err := json.Unmarshal([]byte(request.Body), &ss)
@@ -142,16 +149,11 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 			Body: msg,
 		}, nil
 	case "DELETE":
+		fmt.Printf("DEBUG:: removing scan config\n")
 		// validate repo in URL path:
 		if _, ok := request.PathParameters["id"]; !ok {
 			return serverError(fmt.Errorf("Unknown configuration"))
 		}
-		cfg, err := external.LoadDefaultAWSConfig()
-		if err != nil {
-			return serverError(err)
-		}
-		svc := s3.New(cfg)
-		fmt.Printf("Scanning bucket %v for scan specs\n", configbucket)
 		req := svc.ListObjectsRequest(&s3.ListObjectsInput{
 			Bucket: &configbucket,
 		},
@@ -165,24 +167,27 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 			scanID := strings.TrimSuffix(fn, ".json")
 			if scanID == request.PathParameters["id"] {
 				rmClusterSpec(configbucket, scanID)
+				msg := fmt.Sprintf("Deleted scan config %v ", request.PathParameters["id"])
+				return events.APIGatewayProxyResponse{
+					StatusCode: http.StatusOK,
+					Headers: map[string]string{
+						"Content-Type":                "application/json",
+						"Access-Control-Allow-Origin": "*",
+					},
+					Body: msg,
+				}, nil
 			}
 		}
-		msg := fmt.Sprintf("Deleted scan config %v ", request.PathParameters["id"])
 		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusOK,
+			StatusCode: http.StatusNotFound,
 			Headers: map[string]string{
 				"Content-Type":                "application/json",
 				"Access-Control-Allow-Origin": "*",
 			},
-			Body: msg,
+			Body: "This scan config does not exist, no operation performed",
 		}, nil
 	case "GET":
-		cfg, err := external.LoadDefaultAWSConfig()
-		if err != nil {
-			return serverError(err)
-		}
-		svc := s3.New(cfg)
-		fmt.Printf("Scanning bucket %v for scan specs\n", configbucket)
+		fmt.Printf("DEBUG:: listing scan config\n")
 		req := svc.ListObjectsRequest(&s3.ListObjectsInput{
 			Bucket: &configbucket,
 		},
