@@ -2,5 +2,8 @@
     "region": "us-west-2",
     "registry": "148658015984",
     "repository": "ecrcs/test0",
-    "level": "high"
+    "level": "high",
+    "tags": [
+        "latest"
+    ]
 }

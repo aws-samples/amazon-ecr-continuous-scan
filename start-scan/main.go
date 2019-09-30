@@ -31,27 +31,59 @@ type ScanSpec struct {
 	// Level specifies the severity to consider for summaries
 	// 'high' ... HIGH only, and 'all' ... INFORMATIONAL+UNDEFINED+LOW+MEDIUM+HIGH
 	Level string `json:"level"`
+	// Tags to take into consideration, if empty, all tags will be scanned
+	Tags []string `json:"tags"`
 }
 
-func startScan(scanspec ScanSpec) (string, error) {
+func startScan(scanspec ScanSpec) error {
 	s := session.Must(session.NewSession(&aws.Config{
 		Region:   aws.String(scanspec.Region),
 		Endpoint: aws.String("https://starport.us-west-2.amazonaws.com"),
 	}))
 	svc := ecr.New(s)
-	iid := &ecr.ImageIdentifier{
-		ImageTag: aws.String("latest"),
-	}
-	input := &ecr.StartImageScanInput{
+	scaninput := &ecr.StartImageScanInput{
 		RepositoryName: &scanspec.Repository,
 		RegistryId:     &scanspec.RegistryID,
-		ImageId:        iid,
 	}
-	result, err := svc.StartImageScan(input)
-	if err != nil {
-		return "", err
+	switch len(scanspec.Tags) {
+	case 0: // empty list of tags, scan all tags:
+		fmt.Printf("DEBUG:: scanning all tags for repo %v\n", scanspec.Repository)
+		lio, err := svc.ListImages(&ecr.ListImagesInput{
+			RepositoryName: &scanspec.Repository,
+			RegistryId:     &scanspec.RegistryID,
+			Filter: &ecr.ListImagesFilter{
+				TagStatus: aws.String("TAGGED"),
+			},
+		})
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+		for _, iid := range lio.ImageIds {
+			scaninput.ImageId = iid
+			result, err := svc.StartImageScan(scaninput)
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+			fmt.Printf("DEBUG:: result for tag %v: %v\n", *iid.ImageTag, result)
+		}
+
+	default: // iterate over the tags specified in the config:
+		fmt.Printf("DEBUG:: scanning tags %v for repo %v\n", scanspec.Tags, scanspec.Repository)
+		for _, tag := range scanspec.Tags {
+			scaninput.ImageId = &ecr.ImageIdentifier{
+				ImageTag: aws.String(tag),
+			}
+			result, err := svc.StartImageScan(scaninput)
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+			fmt.Printf("DEBUG:: result for tag %v: %v\n", tag, result)
+		}
 	}
-	return fmt.Sprintf("%v", result), nil
+	return nil
 }
 
 // fetchScanSpec returns the scan spec
@@ -106,12 +138,11 @@ func handler() error {
 			fmt.Println(err)
 			return err
 		}
-		result, err := startScan(scanspec)
+		err = startScan(scanspec)
 		if err != nil {
 			fmt.Println(err)
 			return err
 		}
-		fmt.Printf("DEBUG:: result %v\n", result)
 	}
 	fmt.Printf("DEBUG:: scan done\n")
 	return nil
