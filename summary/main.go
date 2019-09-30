@@ -35,6 +35,8 @@ type ScanSpec struct {
 	// Level specifies the severity to consider for summaries
 	// 'high' ... HIGH only, and 'all' ... INFORMATIONAL+UNDEFINED+LOW+MEDIUM+HIGH
 	Level string `json:"level"`
+	// Tags to take into consideration, if empty, all tags will be scanned
+	Tags []string `json:"tags"`
 }
 
 func serverError(err error) (events.APIGatewayProxyResponse, error) {
@@ -72,32 +74,61 @@ func fetchScanSpec(configbucket, scanid string) (ScanSpec, error) {
 	return ss, nil
 }
 
-func describeScan(scanspec ScanSpec) (string, error) {
+func describeScan(scanspec ScanSpec) (map[string]ecr.ImageScanFindings, error) {
 	s := session.Must(session.NewSession(&aws.Config{
 		Region:   aws.String(scanspec.Region),
 		Endpoint: aws.String("https://starport.us-west-2.amazonaws.com"),
 	}))
 	svc := ecr.New(s)
-	iid := &ecr.ImageIdentifier{
-		ImageTag: aws.String("latest"),
-	}
-	input := &ecr.DescribeImageScanFindingsInput{
+	descinput := &ecr.DescribeImageScanFindingsInput{
 		RepositoryName: &scanspec.Repository,
 		RegistryId:     &scanspec.RegistryID,
-		ImageId:        iid,
-		MaxResults:     aws.Int64(10),
 	}
-	result, err := svc.DescribeImageScanFindings(input)
-	if err != nil {
-		return "", err
+	results := map[string]ecr.ImageScanFindings{}
+	switch len(scanspec.Tags) {
+	case 0: // empty list of tags, describe all tags:
+		fmt.Printf("DEBUG:: scanning all tags for repo %v\n", scanspec.Repository)
+		lio, err := svc.ListImages(&ecr.ListImagesInput{
+			RepositoryName: &scanspec.Repository,
+			RegistryId:     &scanspec.RegistryID,
+			Filter: &ecr.ListImagesFilter{
+				TagStatus: aws.String("TAGGED"),
+			},
+		})
+		if err != nil {
+			fmt.Println(err)
+			return results, err
+		}
+		for _, iid := range lio.ImageIds {
+			descinput.ImageId = iid
+			result, err := svc.DescribeImageScanFindings(descinput)
+			if err != nil {
+				return results, err
+			}
+			results[*iid.ImageTag] = *result.ImageScanFindings
+			fmt.Printf("DEBUG:: result for tag %v: %v\n", *iid.ImageTag, result)
+		}
+	default: // iterate over the tags specified in the config:
+		fmt.Printf("DEBUG:: scanning tags %v for repo %v\n", scanspec.Tags, scanspec.Repository)
+		for _, tag := range scanspec.Tags {
+			descinput.ImageId = &ecr.ImageIdentifier{
+				ImageTag: aws.String(tag),
+			}
+			result, err := svc.DescribeImageScanFindings(descinput)
+			if err != nil {
+				fmt.Println(err)
+				return results, err
+			}
+			results[tag] = *result.ImageScanFindings
+			fmt.Printf("DEBUG:: result for tag %v: %v\n", tag, result)
+		}
 	}
-	return fmt.Sprintf("%v", result), nil
+	return results, nil
 }
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	configbucket := os.Getenv("ECR_SCAN_CONFIG_BUCKET")
 	fmt.Printf("DEBUG:: summary start\n")
-	result := ""
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
 		fmt.Println(err)
@@ -114,6 +145,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		fmt.Println(err)
 		return serverError(err)
 	}
+	ssresult := ""
 	for _, obj := range resp.Contents {
 		fn := *obj.Key
 		scanID := strings.TrimSuffix(fn, ".json")
@@ -122,12 +154,14 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 			fmt.Println(err)
 			return serverError(err)
 		}
-		result, err = describeScan(scanspec)
+		results, err := describeScan(scanspec)
 		if err != nil {
 			fmt.Println(err)
 			return serverError(err)
 		}
-		fmt.Printf("DEBUG:: result %v\n", result)
+		for tag, result := range results {
+			ssresult += fmt.Sprintf("Results for %v:%v in %v:\n%v\n\n", scanspec.Repository, tag, scanspec.Region, result.FindingSeverityCounts)
+		}
 	}
 
 	fmt.Printf("DEBUG:: summary done\n")
@@ -137,7 +171,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 			"Content-Type":                "application/json",
 			"Access-Control-Allow-Origin": "*",
 		},
-		Body: result,
+		Body: ssresult,
 	}, nil
 }
 
