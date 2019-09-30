@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,8 +12,10 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/aws"
+
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -65,6 +68,48 @@ func storeScanSpec(configbucket string, scanspec ScanSpec) error {
 	return err
 }
 
+// fetchScanSpec returns the scan spec
+// in a given bucket, with a given scan ID
+func fetchScanSpec(configbucket, scanid string) (ScanSpec, error) {
+	ss := ScanSpec{}
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		return ss, err
+	}
+	downloader := s3manager.NewDownloader(cfg)
+	buf := aws.NewWriteAtBuffer([]byte{})
+	_, err = downloader.Download(buf, &s3.GetObjectInput{
+		Bucket: aws.String(configbucket),
+		Key:    aws.String(scanid + ".json"),
+	})
+	if err != nil {
+		return ss, err
+	}
+	err = json.Unmarshal(buf.Bytes(), &ss)
+	if err != nil {
+		return ss, err
+	}
+	return ss, nil
+}
+
+// rmClusterSpec deletes the scan spec in a given bucket
+func rmClusterSpec(configbucket, scanid string) error {
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		return err
+	}
+	svc := s3.New(cfg)
+	req := svc.DeleteObjectRequest(&s3.DeleteObjectInput{
+		Bucket: aws.String(configbucket),
+		Key:    aws.String(scanid + ".json"),
+	})
+	_, err = req.Send(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	configbucket := os.Getenv("ECR_SCAN_CONFIG_BUCKET")
 	fmt.Printf("DEBUG:: config continuous scan start\n")
@@ -83,20 +128,83 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		}
 		ss.ID = specID.String()
 		ss.CreationTime = fmt.Sprintf("%v", time.Now().Unix())
-		storeScanSpec(configbucket, ss)
-		fmt.Printf("DEBUG:: register continuous scan done\n")
+		err = storeScanSpec(configbucket, ss)
+		if err != nil {
+			return serverError(err)
+		}
+		msg := fmt.Sprintf("Added scan config. ID=%v ", ss.ID)
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusOK,
 			Headers: map[string]string{
 				"Content-Type":                "application/json",
 				"Access-Control-Allow-Origin": "*",
 			},
-			Body: ss.ID,
+			Body: msg,
 		}, nil
 	case "DELETE":
 		// validate repo in URL path:
 		if _, ok := request.PathParameters["id"]; !ok {
 			return serverError(fmt.Errorf("Unknown configuration"))
+		}
+		cfg, err := external.LoadDefaultAWSConfig()
+		if err != nil {
+			return serverError(err)
+		}
+		svc := s3.New(cfg)
+		fmt.Printf("Scanning bucket %v for scan specs\n", configbucket)
+		req := svc.ListObjectsRequest(&s3.ListObjectsInput{
+			Bucket: &configbucket,
+		},
+		)
+		resp, err := req.Send(context.TODO())
+		if err != nil {
+			return serverError(err)
+		}
+		for _, obj := range resp.Contents {
+			fn := *obj.Key
+			scanID := strings.TrimSuffix(fn, ".json")
+			if scanID == request.PathParameters["id"] {
+				rmClusterSpec(configbucket, scanID)
+			}
+		}
+		msg := fmt.Sprintf("Deleted scan config %v ", request.PathParameters["id"])
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Headers: map[string]string{
+				"Content-Type":                "application/json",
+				"Access-Control-Allow-Origin": "*",
+			},
+			Body: msg,
+		}, nil
+	case "GET":
+		cfg, err := external.LoadDefaultAWSConfig()
+		if err != nil {
+			return serverError(err)
+		}
+		svc := s3.New(cfg)
+		fmt.Printf("Scanning bucket %v for scan specs\n", configbucket)
+		req := svc.ListObjectsRequest(&s3.ListObjectsInput{
+			Bucket: &configbucket,
+		},
+		)
+		resp, err := req.Send(context.TODO())
+		if err != nil {
+			return serverError(err)
+		}
+		scanspecs := []ScanSpec{}
+		for _, obj := range resp.Contents {
+			fn := *obj.Key
+			scanID := strings.TrimSuffix(fn, ".json")
+			scanspec, err := fetchScanSpec(configbucket, scanID)
+			if err != nil {
+				return serverError(err)
+			}
+			scanspecs = append(scanspecs, scanspec)
+
+		}
+		scanspecsjson, err := json.Marshal(scanspecs)
+		if err != nil {
+			return serverError(err)
 		}
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusOK,
@@ -104,18 +212,10 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 				"Content-Type":                "application/json",
 				"Access-Control-Allow-Origin": "*",
 			},
-			Body: "deleted config",
-		}, nil
-	case "GET":
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusOK,
-			Headers: map[string]string{
-				"Content-Type":                "application/json",
-				"Access-Control-Allow-Origin": "*",
-			},
-			Body: "list of all configs",
+			Body: string(scanspecsjson),
 		}, nil
 	}
+	fmt.Printf("DEBUG:: register continuous scan done\n")
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusMethodNotAllowed,
 		Headers: map[string]string{
