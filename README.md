@@ -5,7 +5,6 @@ Prep:
 ```
 export ECR_SCAN_SVC_BUCKET=ecr-continuous-scan-svc
 export ECR_SCAN_CONFIG_BUCKET=ecr-continuous-scan-config
-export ECR_SCAN_RESULT_BUCKET=ecr-continuous-scan-result
 
 aws s3api create-bucket \
             --bucket $ECR_SCAN_SVC_BUCKET \
@@ -14,11 +13,6 @@ aws s3api create-bucket \
 
 aws s3api create-bucket \
             --bucket $ECR_SCAN_CONFIG_BUCKET \
-            --create-bucket-configuration LocationConstraint=$(aws configure get region) \
-            --region $(aws configure get region)
-
-aws s3api create-bucket \
-            --bucket $ECR_SCAN_RESULT_BUCKET \
             --create-bucket-configuration LocationConstraint=$(aws configure get region) \
             --region $(aws configure get region)
 ```
