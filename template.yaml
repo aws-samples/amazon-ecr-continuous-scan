@@ -62,7 +62,6 @@ Resources:
       Environment:
         Variables:
           ECR_SCAN_CONFIG_BUCKET: !Sub "${ConfigBucketName}"
-          ECR_SCAN_RESULT_BUCKET: !Sub "${ResultBucketName}"
       Events:
         CatchAll:
           Type: Api
