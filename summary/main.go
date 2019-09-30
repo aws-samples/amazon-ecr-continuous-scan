@@ -96,11 +96,7 @@ func describeScan(scanspec ScanSpec) (string, error) {
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	configbucket := os.Getenv("ECR_SCAN_CONFIG_BUCKET")
-	resultbucket := os.Getenv("ECR_SCAN_RESULT_BUCKET")
 	fmt.Printf("DEBUG:: summary start\n")
-	fmt.Println(configbucket)
-	fmt.Println(resultbucket)
-
 	result := ""
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {

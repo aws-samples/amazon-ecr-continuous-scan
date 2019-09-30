@@ -67,29 +67,60 @@ func storeScanSpec(configbucket string, scanspec ScanSpec) error {
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	configbucket := os.Getenv("ECR_SCAN_CONFIG_BUCKET")
-	fmt.Printf("DEBUG:: register continuous scan start\n")
-	fmt.Println(configbucket)
-	ss := ScanSpec{}
-	// Unmarshal the JSON payload in the POST:
-	err := json.Unmarshal([]byte(request.Body), &ss)
-	if err != nil {
-		return serverError(err)
+	fmt.Printf("DEBUG:: config continuous scan start\n")
+
+	switch request.HTTPMethod {
+	case "POST":
+		ss := ScanSpec{}
+		// Unmarshal the JSON payload in the POST:
+		err := json.Unmarshal([]byte(request.Body), &ss)
+		if err != nil {
+			return serverError(err)
+		}
+		specID, err := uuid.NewV4()
+		if err != nil {
+			return serverError(err)
+		}
+		ss.ID = specID.String()
+		ss.CreationTime = fmt.Sprintf("%v", time.Now().Unix())
+		storeScanSpec(configbucket, ss)
+		fmt.Printf("DEBUG:: register continuous scan done\n")
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Headers: map[string]string{
+				"Content-Type":                "application/json",
+				"Access-Control-Allow-Origin": "*",
+			},
+			Body: ss.ID,
+		}, nil
+	case "DELETE":
+		// validate repo in URL path:
+		if _, ok := request.PathParameters["id"]; !ok {
+			return serverError(fmt.Errorf("Unknown configuration"))
+		}
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Headers: map[string]string{
+				"Content-Type":                "application/json",
+				"Access-Control-Allow-Origin": "*",
+			},
+			Body: "deleted config",
+		}, nil
+	case "GET":
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Headers: map[string]string{
+				"Content-Type":                "application/json",
+				"Access-Control-Allow-Origin": "*",
+			},
+			Body: "list of all configs",
+		}, nil
 	}
-	specID, err := uuid.NewV4()
-	if err != nil {
-		return serverError(err)
-	}
-	ss.ID = specID.String()
-	ss.CreationTime = fmt.Sprintf("%v", time.Now().Unix())
-	storeScanSpec(configbucket, ss)
-	fmt.Printf("DEBUG:: register continuous scan done\n")
 	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusOK,
+		StatusCode: http.StatusMethodNotAllowed,
 		Headers: map[string]string{
-			"Content-Type":                "application/json",
 			"Access-Control-Allow-Origin": "*",
 		},
-		Body: ss.ID,
 	}, nil
 }
 

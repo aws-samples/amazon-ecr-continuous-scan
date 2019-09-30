@@ -113,7 +113,6 @@ func fetchScanSpec(configbucket, scanid string) (ScanSpec, error) {
 func handler() error {
 	configbucket := os.Getenv("ECR_SCAN_CONFIG_BUCKET")
 	fmt.Printf("DEBUG:: scan start\n")
-	fmt.Println(configbucket)
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
 		fmt.Println(err)

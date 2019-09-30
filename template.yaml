@@ -18,11 +18,11 @@ Parameters:
         Type: String
 
 Resources:
-  RegisterFunc:
+  ConfigsFunc:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: bin/
-      Handler: register
+      Handler: configs
       Runtime: go1.x
       Tracing: Active
       Environment:
@@ -37,7 +37,7 @@ Resources:
         RemoveConfig:
           Type: Api
           Properties:
-            Path: /configs/{regionrepo}
+            Path: /configs/{id}
             Method: DELETE
         ListConfigs:
           Type: Api
