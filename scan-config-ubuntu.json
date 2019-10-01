@@ -1,8 +1,9 @@
 {
     "region": "us-west-2",
     "registry": "148658015984",
-    "repository": "scantest",
+    "repository": "test/ubuntu",
     "tags": [
+        "16.04",
         "latest"
     ]
 }

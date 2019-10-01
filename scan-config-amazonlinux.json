@@ -1,8 +1,8 @@
 {
     "region": "us-west-2",
     "registry": "148658015984",
-    "repository": "ecrcs/test0",
+    "repository": "amazonlinux",
     "tags": [
-        "latest"
+        "2018.03"
     ]
 }

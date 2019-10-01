@@ -30,7 +30,7 @@ Managing scan configurations:
 curl $ECRSCANAPI_URL/configs/
 
 # add a scan config:
-curl -s --header "Content-Type: application/json" --request POST --data @test-scan-spec.json $ECRSCANAPI_URL/configs/
+curl -s --header "Content-Type: application/json" --request POST --data @scan-config-amazonlinux.json $ECRSCANAPI_URL/configs/
 
 # remove a scan config:
 curl --request DELETE $ECRSCANAPI_URL/configs/e7c3b83c-b995-44d3-942b-8b1001f33ae
@@ -41,5 +41,5 @@ Manage scan results:
 ```
 curl $ECRSCANAPI_URL/summary
 
-curl $ECRSCANAPI_URL/findings
+curl $ECRSCANAPI_URL/findings/e7c3b83c-b995-44d3-942b-8b1001f33ae
 ```
