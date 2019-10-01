@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -18,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/gorilla/feeds"
 )
 
 // ScanSpec represents configuration for the target repository
@@ -123,6 +125,43 @@ func describeScan(scanspec ScanSpec) (map[string]ecr.ImageScanFindings, error) {
 	return results, nil
 }
 
+func buildFeed(scanspec ScanSpec) (string, error) {
+
+	findings, err := describeScan(scanspec)
+	if err != nil {
+		return "", err
+	}
+	now := time.Now()
+	feed := &feeds.Feed{
+		Title:       fmt.Sprintf("Findings for scan of repository %v in %v", scanspec.Repository, scanspec.Region),
+		Link:        &feeds.Link{Href: "http://example.com"},
+		Description: "Details of the findings across selected tags",
+		Author:      &feeds.Author{Name: "ECR"},
+		Created:     now,
+	}
+	for tag, isfindings := range findings {
+		for _, finding := range isfindings.Findings {
+			title := *finding.Name
+			link := *finding.Uri
+			desc := *finding.Description
+			item := &feeds.Item{
+				Title:       title,
+				Link:        &feeds.Link{Href: link},
+				Description: desc,
+				Id:          tag,
+				Created:     now,
+			}
+			feed.Items = append(feed.Items, item)
+		}
+	}
+
+	findingsfeed, err := feed.ToAtom()
+	if err != nil {
+		return "", err
+	}
+	return findingsfeed, nil
+}
+
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	configbucket := os.Getenv("ECR_SCAN_CONFIG_BUCKET")
 	fmt.Printf("DEBUG:: findings start\n")
@@ -155,23 +194,19 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 				fmt.Println(err)
 				return serverError(err)
 			}
-			findings, err := describeScan(scanspec)
+			findingsfeed, err := buildFeed(scanspec)
 			if err != nil {
 				fmt.Println(err)
 				return serverError(err)
 			}
 			fmt.Printf("DEBUG:: findings done\n")
-			findingsjson, err := json.Marshal(findings)
-			if err != nil {
-				return serverError(err)
-			}
 			return events.APIGatewayProxyResponse{
 				StatusCode: http.StatusOK,
 				Headers: map[string]string{
-					"Content-Type":                "application/json",
+					"Content-Type":                "application/atom+xml",
 					"Access-Control-Allow-Origin": "*",
 				},
-				Body: string(findingsjson),
+				Body: findingsfeed,
 			}, nil
 		}
 	}
