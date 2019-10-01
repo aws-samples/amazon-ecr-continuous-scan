@@ -147,7 +147,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		}, nil
 	case "DELETE":
 		fmt.Printf("DEBUG:: removing scan config\n")
-		// validate repo in URL path:
+		// validate ID in URL path:
 		if _, ok := request.PathParameters["id"]; !ok {
 			return serverError(fmt.Errorf("Unknown configuration"))
 		}

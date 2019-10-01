@@ -36,6 +36,10 @@ curl -s --header "Content-Type: application/json" --request POST --data @test-sc
 curl --request DELETE $ECRSCANAPI_URL/configs/e7c3b83c-b995-44d3-942b-8b1001f33ae
 ```
 
+Manage scan results:
+
 ```
 curl $ECRSCANAPI_URL/summary
+
+curl $ECRSCANAPI_URL/findings
 ```

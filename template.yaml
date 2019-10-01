@@ -82,6 +82,36 @@ Resources:
               Resource:
               - !Sub "arn:aws:s3:::${ConfigBucketName}/*"
               - !Sub "arn:aws:s3:::${ConfigBucketName}"
+  FindingsFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: bin/
+      Handler: findings
+      Runtime: go1.x
+      Tracing: Active
+      Environment:
+        Variables:
+          ECR_SCAN_CONFIG_BUCKET: !Sub "${ConfigBucketName}"
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            Path: /findings/{id}
+            Method: GET
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+              - ecr:*
+              Resource: '*'
+            - Effect: Allow
+              Action:
+              - s3:*
+              Resource:
+              - !Sub "arn:aws:s3:::${ConfigBucketName}/*"
+              - !Sub "arn:aws:s3:::${ConfigBucketName}"
   StartScanFunc:
     Type: AWS::Serverless::Function
     Properties:

@@ -4,11 +4,20 @@ ECR_SCAN_CONFIG_BUCKET?=ecr-continuous-scan-config
 
 .PHONY: build up deploy destroy status
 
-	
-build:
+
+build: bconfigs bsscan bsummary bfindings
+
+bconfigs:
 	GOOS=linux GOARCH=amd64 go build -v -ldflags '-d -s -w' -a -tags netgo -installsuffix netgo -o bin/configs ./configs
+
+bsscan:
 	GOOS=linux GOARCH=amd64 go build -v -ldflags '-d -s -w' -a -tags netgo -installsuffix netgo -o bin/start-scan ./start-scan
+
+bsummary:
 	GOOS=linux GOARCH=amd64 go build -v -ldflags '-d -s -w' -a -tags netgo -installsuffix netgo -o bin/summary ./summary
+
+bfindings:
+	GOOS=linux GOARCH=amd64 go build -v -ldflags '-d -s -w' -a -tags netgo -installsuffix netgo -o bin/findings ./findings
 
 up: 
 	sam package --template-file template.yaml --output-template-file current-stack.yaml --s3-bucket ${ECR_SCAN_SVC_BUCKET}
