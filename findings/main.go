@@ -139,7 +139,7 @@ func buildFeed(scanspec ScanSpec) (string, error) {
 	}
 	for tag, isfindings := range findings {
 		for _, finding := range isfindings.Findings {
-			title := fmt.Sprintf("For image %v:%v found %v", scanspec.Repository, tag, *finding.Name)
+			title := fmt.Sprintf("[%v] in image %v:%v found %v", *finding.Severity, scanspec.Repository, tag, *finding.Name)
 			link := *finding.Uri
 			desc := *finding.Description
 			item := &feeds.Item{
