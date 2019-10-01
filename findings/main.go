@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -131,17 +130,16 @@ func buildFeed(scanspec ScanSpec) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	now := time.Now()
+	ecrlink := fmt.Sprintf("https://%v.console.aws.amazon.com/ecr/repositories/%v/", scanspec.Region, scanspec.Repository)
 	feed := &feeds.Feed{
-		Title:       fmt.Sprintf("Findings for scan of repository %v in %v", scanspec.Repository, scanspec.Region),
-		Link:        &feeds.Link{Href: "http://example.com"},
-		Description: "Details of the findings across selected tags",
+		Title:       fmt.Sprintf("ECR repository %v in %v", scanspec.Repository, scanspec.Region),
+		Link:        &feeds.Link{Href: ecrlink},
+		Description: "Details of the image scan findings across the tags: ",
 		Author:      &feeds.Author{Name: "ECR"},
-		Created:     now,
 	}
 	for tag, isfindings := range findings {
 		for _, finding := range isfindings.Findings {
-			title := *finding.Name
+			title := fmt.Sprintf("For image %v:%v found %v", scanspec.Repository, tag, *finding.Name)
 			link := *finding.Uri
 			desc := *finding.Description
 			item := &feeds.Item{
@@ -149,10 +147,11 @@ func buildFeed(scanspec ScanSpec) (string, error) {
 				Link:        &feeds.Link{Href: link},
 				Description: desc,
 				Id:          tag,
-				Created:     now,
+				Created:     *isfindings.ImageScanCompletedAt,
 			}
 			feed.Items = append(feed.Items, item)
 		}
+		feed.Description += "[" + tag + "] "
 	}
 
 	findingsfeed, err := feed.ToAtom()
