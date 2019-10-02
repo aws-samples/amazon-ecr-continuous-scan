@@ -54,7 +54,7 @@ Overall: Lambda functions, HTTP API
 ```json
 {
     "region": "us-west-2",
-    "registry": "148658015984",
+    "registry": "123456789012",
     "repository": "amazonlinux",
     "tags": [
         "2018.03"
@@ -80,26 +80,115 @@ Scan findings:
 * `GET findings/{scanid}` … provides detailed findings on a scan configuration bases, returns an Atom feed
 
 
-## Usage
+## Usage walkthrough
+
+Capture the base HTTP API:
 
 ```sh
 export ECRSCANAPI_URL=$(aws cloudformation describe-stacks --stack-name ecr-continuous-scan | jq '.Stacks[].Outputs[] | select(.OutputKey=="ECRScanAPIEndpoint").OutputValue' -r)
 ```
 
-Managing scan configurations:
+Add some scan configurations:
 
 ```sh
-curl $ECRSCANAPI_URL/configs/
-
 curl -s --header "Content-Type: application/json" --request POST --data @scan-config-amazonlinux.json $ECRSCANAPI_URL/configs/
-
-curl --request DELETE $ECRSCANAPI_URL/configs/e7c3b83c-b995-44d3-942b-8b1001f33ae
+curl -s --header "Content-Type: application/json" --request POST --data @scan-config-centos.json $ECRSCANAPI_URL/configs/
+curl -s --header "Content-Type: application/json" --request POST --data @scan-config-ubuntu.json $ECRSCANAPI_URL/configs/
 ```
 
-Manage scan results:
+List all registered scan configurations:
 
 ```sh
-curl $ECRSCANAPI_URL/summary
+$ curl $ECRSCANAPI_URL/configs/
+[
+  {
+    "id": "4471c156-29f5-40fe-883b-3cd26738d5a6",
+    "created": "1569927812",
+    "region": "us-west-2",
+    "registry": "123456789012",
+    "repository": "amazonlinux",
+    "tags": [
+      "2018.03"
+    ]
+  },
+  {
+    "id": "612fccea-9545-45d0-8feb-cdc20c4c3061",
+    "created": "1569927820",
+    "region": "us-west-2",
+    "registry": "123456789012",
+    "repository": "test/centos",
+    "tags": null
+  },
+  {
+    "id": "fc41dda8-f15e-4826-8908-11603b01dac4",
+    "created": "1569927828",
+    "region": "us-west-2",
+    "registry": "123456789012",
+    "repository": "test/ubuntu",
+    "tags": [
+      "16.04",
+      "latest"
+    ]
+  }
+]
+```
 
-curl $ECRSCANAPI_URL/findings/e7c3b83c-b995-44d3-942b-8b1001f33ae
+Get an overview of the scan result findings
+
+```sh
+$ curl $ECRSCANAPI_URL/summary
+Results for amazonlinux:2018.03 in us-west-2:
+
+
+Results for test/centos:7 in us-west-2:
+ HIGH: 7
+ LOW: 7
+ MEDIUM: 20
+
+
+Results for test/ubuntu:16.04 in us-west-2:
+ INFORMATIONAL: 19
+ LOW: 24
+ MEDIUM: 8
+
+
+Results for test/ubuntu:latest in us-west-2:
+ MEDIUM: 7
+ INFORMATIONAL: 9
+ LOW: 13
+```
+
+Get a detailed feed of findings for `test/ubuntu` (with scan ID `fc41dda8-f15e-4826-8908-11603b01dac4`):
+
+```sh
+$ curl $ECRSCANAPI_URL/findings/fc41dda8-f15e-4826-8908-11603b01dac4
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>ECR repository test/ubuntu in us-west-2</title>
+  <id>https://us-west-2.console.aws.amazon.com/ecr/repositories/test/ubuntu/</id>
+  <updated></updated>
+  <subtitle>Details of the image scan findings across the tags: [16.04] [latest] </subtitle>
+  <link href="https://us-west-2.console.aws.amazon.com/ecr/repositories/test/ubuntu/"></link>
+  <author>
+    <name>ECR</name>
+  </author>
+  <entry>
+    <title>[MEDIUM] in image test/ubuntu:16.04 found CVE-2016-1585</title>
+    <updated>2019-10-01T11:27:17Z</updated>
+    <id>16.04</id>
+    <link href="http://people.ubuntu.com/~ubuntu-security/cve/CVE-2016-1585" rel="alternate"></link>
+    <summary type="html">In all versions of AppArmor mount rules are accidentally widened when compiled.</summary>
+  </entry>
+  ...
+</feed>  
+```
+
+The Atom feeds can be consumed in a feed reader, for example:
+
+![Scan findings feed](scan-findindings-feed.png)
+
+You can remove scan configs like so:
+
+```sh
+curl --request DELETE $ECRSCANAPI_URL/configs/4471c156-29f5-40fe-883b-3cd26738d5a6
 ```
