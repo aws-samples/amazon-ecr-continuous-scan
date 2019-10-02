@@ -5,9 +5,15 @@ for a continuous scan, that is, scanning images on a regular basis. We will walk
 
 ## Installation
 
-Prerequisites: SAM, `aws` CLI 
+In order to build and deploy the service, clone this repo and make sure you've got the following available, locally:
 
-Preparing the S3 buckets:
+- The [aws](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html) CLI
+- The [SAM CLI](https://github.com/awslabs/aws-sam-cli)
+- Go 1.12 or above
+
+Additionally, having [jq](https://stedolan.github.io/jq/download/) installed it recommended.
+
+Preparing the S3 buckets (make sure that you pick different names for the `ECR_SCAN_*` buckets):
 
 ```sh
 export ECR_SCAN_SVC_BUCKET=ecr-continuous-scan-svc
@@ -24,7 +30,18 @@ aws s3api create-bucket \
             --region $(aws configure get region)
 ```
 
-Then `make deploy` ...
+Make sure that you have the newest [Go SDK](https://aws.amazon.com/sdk-for-go/) installed, 
+supporting the image scanning feature. In addition, you need to `go get https://github.com/gorilla/feeds`
+as the one other dependency outside of the standard library. Then execute:
+
+```sh
+make deploy
+``` 
+
+which will build the binaries and deploy the Lambda functions. 
+
+You're now ready to use the demo.
+
 
 ## Architecture
 
