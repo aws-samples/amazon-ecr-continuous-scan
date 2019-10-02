@@ -47,6 +47,8 @@ You're now ready to use the demo.
 
 Overall: Lambda functions, HTTP API
 
+![ECR continuous scan demo architecture](ecr-continuous-scan-architecture.png)
+
 ### Scan configurations
 
 ```json
