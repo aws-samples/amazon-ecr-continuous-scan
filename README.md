@@ -61,6 +61,10 @@ In addition, there is a `StartScanFunc` that is triggered by a CloudWatch event,
 
 ### Scan configurations
 
+To specify which repositories should be re-scanned on a regular basis, one has to provide a scan configuration.
+
+This scan configuration has three required fields, `region`, `registry` (your AWS account ID), and
+the `repository` itself: 
 
 ```json
 {
