@@ -1,7 +1,7 @@
 # ECR Continuous Image Scanning
 
 This repo shows how to use the [ECR image scanning](https://docs.aws.amazon.com/AmazonECR/latest/userguide/security.html) feature
-for a continuous scan, that is, scanning images on a regular basis. We will walk you through the setup and usage of this demo.
+for a scheduled re-scan, that is, scanning images on a regular basis. We will walk you through the setup and usage of this demo.
 
 ## Installation
 
@@ -45,11 +45,22 @@ You're now ready to use the demo.
 
 ## Architecture
 
-Overall: Lambda functions, HTTP API
+The overall architecture of the demo is as follows:
 
 ![ECR continuous scan demo architecture](ecr-continuous-scan-architecture.png)
 
+There are four Lambda functions and an S3 buckets to hold the scan configurations involved.
+
+The HTTP API is made up of the following three Lambda functions:
+
+* `ConfigsFunc` handles the management of scan configs, allowing you to store, list, and delete them.
+* `SummaryFunc` provides a summary of the scan findings across all scan configs.
+* `FindingsFunc` provides a detailed Atom feed of the scan findings per scan config.
+
+In addition, there is a `StartScanFunc` that is triggered by a CloudWatch event, kicking off the image scan.
+
 ### Scan configurations
+
 
 ```json
 {
