@@ -97,6 +97,10 @@ Scan findings:
 
 ## Usage walkthrough
 
+The following walkthrough assumes that the ECR repositories have been set up
+(using `aws ecr create-repository`) and the container images have been pushed to
+the repositories, accordingly.
+
 Capture the base HTTP API:
 
 ```sh
