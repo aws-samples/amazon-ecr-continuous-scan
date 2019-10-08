@@ -101,13 +101,13 @@ The following walkthrough assumes that the ECR repositories have been set up
 (using `aws ecr create-repository`) and the container images have been pushed to
 the repositories, accordingly.
 
-Capture the base HTTP API:
+First, in order to interact with the HTTP API, capture the base URL in an environment variable `ECRSCANAPI_URL` like so:
 
 ```sh
 export ECRSCANAPI_URL=$(aws cloudformation describe-stacks --stack-name ecr-continuous-scan | jq '.Stacks[].Outputs[] | select(.OutputKey=="ECRScanAPIEndpoint").OutputValue' -r)
 ```
 
-Add some scan configurations:
+Now, add some scan configurations (part of this repo):
 
 ```sh
 curl -s --header "Content-Type: application/json" --request POST --data @scan-config-amazonlinux.json $ECRSCANAPI_URL/configs/
