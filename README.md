@@ -152,7 +152,7 @@ $ curl $ECRSCANAPI_URL/configs/
 ]
 ```
 
-Get an overview of the scan result findings
+Get an overview of the scan result findings across the registered scan configurations:
 
 ```sh
 $ curl $ECRSCANAPI_URL/summary
