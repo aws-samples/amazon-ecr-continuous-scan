@@ -1,6 +1,6 @@
-# ECR Continuous Image Scanning
+# ECR Container Image Re-Scan
 
-This repo shows how to use the [ECR image scanning](https://docs.aws.amazon.com/AmazonECR/latest/userguide/security.html) feature
+This repo shows how to use the [ECR image scanning](https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning.html) feature
 for a scheduled re-scan, that is, scanning images on a regular basis. We will walk you through the setup and usage of this demo.
 
 ## Installation
