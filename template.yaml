@@ -126,7 +126,7 @@ Resources:
         Timer:
           Type: Schedule
           Properties:
-            Schedule: rate(5 minutes)
+            Schedule: rate(24 hours)
       Policies:
         - AWSLambdaExecute
         - Version: '2012-10-17'
