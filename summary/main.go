@@ -73,8 +73,7 @@ func fetchScanSpec(configbucket, scanid string) (ScanSpec, error) {
 
 func describeScan(scanspec ScanSpec) (map[string]ecr.ImageScanFindings, error) {
 	s := session.Must(session.NewSession(&aws.Config{
-		Region:   aws.String(scanspec.Region),
-		Endpoint: aws.String("https://starport.us-west-2.amazonaws.com"),
+		Region: aws.String(scanspec.Region),
 	}))
 	svc := ecr.New(s)
 	descinput := &ecr.DescribeImageScanFindingsInput{
