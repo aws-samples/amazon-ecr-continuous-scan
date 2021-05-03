@@ -31,7 +31,7 @@ aws s3api create-bucket \
 ```
 
 Make sure that you have the newest [Go SDK](https://aws.amazon.com/sdk-for-go/) installed, 
-supporting the image scanning feature. In addition, you need to `go get https://github.com/gorilla/feeds`
+supporting the image scanning feature. In addition, you need to `go get github.com/gorilla/feeds`
 as the one other dependency outside of the standard library. Then execute:
 
 ```sh
