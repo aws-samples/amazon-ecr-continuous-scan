@@ -12,9 +12,9 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
@@ -52,13 +52,19 @@ func serverError(err error) (events.APIGatewayProxyResponse, error) {
 // in a given bucket, with a given scan ID
 func fetchScanSpec(configbucket, scanid string) (ScanSpec, error) {
 	ss := ScanSpec{}
-	cfg, err := external.LoadDefaultAWSConfig()
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return ss, err
 	}
-	downloader := s3manager.NewDownloader(cfg)
+
+	// Create an S3 Client with the config
+	client := s3.NewFromConfig(cfg)
+
+	// Create an uploader passing it the client
+	downloader := manager.NewDownloader(client)
+
 	buf := aws.NewWriteAtBuffer([]byte{})
-	_, err = downloader.Download(buf, &s3.GetObjectInput{
+	_, err = downloader.Download(context.TODO(), buf, &s3.GetObjectInput{
 		Bucket: aws.String(configbucket),
 		Key:    aws.String(scanid + ".json"),
 	})
@@ -167,18 +173,18 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	if _, ok := request.PathParameters["id"]; !ok {
 		return serverError(fmt.Errorf("Unknown configuration"))
 	}
-	cfg, err := external.LoadDefaultAWSConfig()
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		fmt.Println(err)
 		return serverError(err)
 	}
-	svc := s3.New(cfg)
+	svc := s3.NewFromConfig(cfg)
 	fmt.Printf("Scanning bucket %v for scan specs\n", configbucket)
-	req := svc.ListObjectsRequest(&s3.ListObjectsInput{
+	resp, err := svc.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
 		Bucket: &configbucket,
 	},
 	)
-	resp, err := req.Send(context.TODO())
+	// resp, err := req.Send(context.TODO())
 	if err != nil {
 		fmt.Println(err)
 		return serverError(err)

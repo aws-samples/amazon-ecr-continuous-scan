@@ -8,9 +8,8 @@
 # Test binary, build with `go test -c`
 *.test
 
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 .DS_Store
 /bin
-/vendor/github.com/aws/aws-sdk-go
+vendor
 /current-stack.yaml
